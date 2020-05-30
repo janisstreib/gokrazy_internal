@@ -13,11 +13,12 @@ import (
 	"strings"
 
 	"github.com/gokrazy/internal/config"
+	"github.com/gokrazy/internal/updater"
 )
 
-func GetTLSHttpClientByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*http.Client, bool, error) {
+func GetUpdaterByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*updater.Updater, bool, error) {
 	if *tlsFlag == "" {
-		return http.DefaultClient, false, nil
+		return &updater.Updater{BaseUrl: baseUrl, HttpClient: http.DefaultClient}, false, nil
 	}
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
@@ -50,8 +51,7 @@ func GetTLSHttpClientByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*http.Client,
 			rootCAs.AppendCertsFromPEM(certBytes)
 		}
 	}
-
-	return GetTLSHttpClient(rootCAs), foundMatchingCertificate, nil
+	return &updater.Updater{BaseUrl: baseUrl, HttpClient: GetTLSHttpClient(rootCAs)}, foundMatchingCertificate, nil
 }
 
 func GetTLSHttpClient(trustStore *x509.CertPool) *http.Client {
