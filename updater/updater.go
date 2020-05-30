@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -18,20 +19,25 @@ var ErrUpdateHandlerNotImplemented = errors.New("update handler not implemented"
 
 type countingWriter int64
 
+type Updater struct {
+	BaseUrl    *url.URL
+	HttpClient *http.Client
+}
+
 func (cw *countingWriter) Write(p []byte) (n int, err error) {
 	*cw += countingWriter(len(p))
 	return len(p), nil
 }
 
-func StreamTo(baseUrl string, r io.Reader, client *http.Client) error {
+func StreamTo(updater *Updater, path string, r io.Reader) error {
 	start := time.Now()
 	hash := sha256.New()
 	var cw countingWriter
-	req, err := http.NewRequest(http.MethodPut, baseUrl, io.TeeReader(io.TeeReader(r, hash), &cw))
+	req, err := http.NewRequest(http.MethodPut, updater.BaseUrl.String()+path, io.TeeReader(io.TeeReader(r, hash), &cw))
 	if err != nil {
 		return err
 	}
-	resp, err := client.Do(req)
+	resp, err := updater.HttpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -60,20 +66,20 @@ func StreamTo(baseUrl string, r io.Reader, client *http.Client) error {
 	return nil
 }
 
-func UpdateRoot(baseUrl string, r io.Reader, client *http.Client) error {
-	return StreamTo(baseUrl+"update/root", r, client)
+func UpdateRoot(updater *Updater, r io.Reader) error {
+	return StreamTo(updater, "update/root", r)
 }
 
-func UpdateBoot(baseUrl string, r io.Reader, client *http.Client) error {
-	return StreamTo(baseUrl+"update/boot", r, client)
+func UpdateBoot(updater *Updater, r io.Reader) error {
+	return StreamTo(updater, "update/boot", r)
 }
 
-func UpdateMBR(baseUrl string, r io.Reader, client *http.Client) error {
-	return StreamTo(baseUrl+"update/mbr", r, client)
+func UpdateMBR(updater *Updater, r io.Reader) error {
+	return StreamTo(updater, "update/mbr", r)
 }
 
-func Switch(baseUrl string, client *http.Client) error {
-	resp, err := client.Post(baseUrl+"update/switch", "", nil)
+func Switch(updater *Updater) error {
+	resp, err := updater.HttpClient.Post(updater.BaseUrl.String()+"update/switch", "", nil)
 	if err != nil {
 		return err
 	}
@@ -84,8 +90,8 @@ func Switch(baseUrl string, client *http.Client) error {
 	return nil
 }
 
-func Reboot(baseUrl string, client *http.Client) error {
-	resp, err := client.Post(baseUrl+"reboot", "", nil)
+func Reboot(updater *Updater) error {
+	resp, err := updater.HttpClient.Post(updater.BaseUrl.String()+"reboot", "", nil)
 	if err != nil {
 		return err
 	}
@@ -96,8 +102,8 @@ func Reboot(baseUrl string, client *http.Client) error {
 	return nil
 }
 
-func TargetSupports(baseUrl, feature string, client *http.Client) (bool, error) {
-	resp, err := client.Get(baseUrl + "update/features")
+func TargetSupports(updater *Updater, feature string) (bool, error) {
+	resp, err := updater.HttpClient.Get(updater.BaseUrl.String() + "update/features")
 	if err != nil {
 		return false, err
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/gokrazy/internal/config"
+	"github.com/gokrazy/internal/updater"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 	"strings"
 )
 
-func GetTLSHttpClientByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*http.Client, bool, error) {
+func GetUpdaterByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*updater.Updater, bool, error) {
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
 		log.Printf("initializing x509 system cert pool failed (%v), falling back to empty cert pool", err)
@@ -50,7 +51,7 @@ func GetTLSHttpClientByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*http.Client,
 	if err != nil {
 		return nil, false, err
 	}
-	return client, foundMatchingCertificate, nil
+	return &updater.Updater{BaseUrl: baseUrl, HttpClient: client}, foundMatchingCertificate, nil
 }
 
 func GetTLSHttpClient(trustStore *x509.CertPool) (*http.Client, error) {
